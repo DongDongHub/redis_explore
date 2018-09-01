@@ -27,6 +27,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+//本人于 18/09/01 start analyse redis 3.2.11 version
+
 #ifndef __REDIS_H
 #define __REDIS_H
 
