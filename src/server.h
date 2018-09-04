@@ -705,24 +705,45 @@ struct clusterState;
 
 struct redisServer {
     /* General */
+    int arch_bits;              /* 32 or 64 depending on sizeof(long) */	
+
     pid_t pid;                  /* Main process pid. */
+    char *pidfile;              /* PID file path */
     char *configfile;           /* Absolute config file path, or NULL */
     char *executable;           /* Absolute executable file path. */
-    char **exec_argv;           /* Executable argv vector (copy). */
-    int hz;                     /* serverCron() calls frequency in hertz */
+    char **exec_argv;           /* Executable argv vector (copy). */	
+    int shutdown_asap;          /* SHUTDOWN needed ASAP */
+
+	
+
+	/* server cron  */	
+    int hz;                     /* serverCron() calls frequency in hertz */	
+    int activerehashing;        /* Incremental rehash in serverCron() */	
+    int cronloops;              /* Number of times the cron function run */
+
+
+	/* local db */
     redisDb *db;
+
+	/* redis command  */
     dict *commands;             /* Command table */
     dict *orig_commands;        /* Command table before command renaming. */
-    aeEventLoop *el;
+
+	/* network *
+    aeEventLoop *el;			/* Event loop object*/
+	
     unsigned lruclock:LRU_BITS; /* Clock for LRU eviction */
-    int shutdown_asap;          /* SHUTDOWN needed ASAP */
-    int activerehashing;        /* Incremental rehash in serverCron() */
+	
+	
+	/* base check */
     char *requirepass;          /* Pass for AUTH command, or NULL */
-    char *pidfile;              /* PID file path */
-    int arch_bits;              /* 32 or 64 depending on sizeof(long) */
-    int cronloops;              /* Number of times the cron function run */
+	
+
     char runid[CONFIG_RUN_ID_SIZE+1];  /* ID always different at every exec. */
+	/* repl */
     int sentinel_mode;          /* True if this instance is a Sentinel. */
+
+	
     /* Networking */
     int port;                   /* TCP listening port */
     int tcp_backlog;            /* TCP listen() backlog */
