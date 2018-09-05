@@ -38,6 +38,7 @@
 #include "sds.h"
 #include "sdsalloc.h"
 
+// 根据 sds 类型 获取头部结构体的占用的字节数的大小
 static inline int sdsHdrSize(char type) {
     switch(type&SDS_TYPE_MASK) {
         case SDS_TYPE_5:
@@ -54,6 +55,7 @@ static inline int sdsHdrSize(char type) {
     return 0;
 }
 
+// 根据 字符串的长度 来请求sds 编码的类型
 static inline char sdsReqType(size_t string_size) {
     if (string_size < 1<<5)
         return SDS_TYPE_5;
@@ -78,23 +80,24 @@ static inline char sdsReqType(size_t string_size) {
  * You can print the string with printf() as there is an implicit \0 at the
  * end of the string. However the string is binary safe and can contain
  * \0 characters in the middle, as the length is stored in the sds header. */
+// 根据 init 和 initlen 新建一个 sds 对象。 sds 总是以空结尾， 意味着 如果我们用sds 存储字符串对象 则可以直接使用字符串相关的函数 否则要用 len
 sds sdsnewlen(const void *init, size_t initlen) {
     void *sh;
     sds s;
-    char type = sdsReqType(initlen);
+    char type = sdsReqType(initlen);  //获取 sds 类型
     /* Empty strings are usually created in order to append. Use type 8
      * since type 5 is not good at this. */
-    if (type == SDS_TYPE_5 && initlen == 0) type = SDS_TYPE_8;
-    int hdrlen = sdsHdrSize(type);
+    if (type == SDS_TYPE_5 && initlen == 0) type = SDS_TYPE_8; //优化点 对于 为空的 返回 sds8
+    int hdrlen = sdsHdrSize(type);  //获取 sds 类型头部大小
     unsigned char *fp; /* flags pointer. */
 
-    sh = s_malloc(hdrlen+initlen+1);
-    if (!init)
-        memset(sh, 0, hdrlen+initlen+1);
+    sh = s_malloc(hdrlen+initlen+1);  //sh 指向 sds 结构体的起始位置
+    if (!init)  //如果 init 为 null
+        memset(sh, 0, hdrlen+initlen+1);  // sds buf 置为 NULL
     if (sh == NULL) return NULL;
     s = (char*)sh+hdrlen;
     fp = ((unsigned char*)s)-1;
-    switch(type) {
+    switch(type) {  //根据 sds 类型 和 initlen 初始化 sds 的len 和 alloc 两个成员
         case SDS_TYPE_5: {
             *fp = type | (initlen << SDS_TYPE_BITS);
             break;
@@ -128,7 +131,7 @@ sds sdsnewlen(const void *init, size_t initlen) {
             break;
         }
     }
-    if (initlen && init)
+    if (initlen && init)  //如果 initlen !=0 && init != NULL 时 执行拷贝操作
         memcpy(s, init, initlen);
     s[initlen] = '\0';
     return s;
@@ -136,25 +139,29 @@ sds sdsnewlen(const void *init, size_t initlen) {
 
 /* Create an empty (zero length) sds string. Even in this case the string
  * always has an implicit null term. */
+// 创建一个   空的 sds
 sds sdsempty(void) {
     return sdsnewlen("",0);
 }
 
 /* Create a new sds string starting from a null terminated C string. */
+// 创建一个 sds 从 C 字符串中
 sds sdsnew(const char *init) {
     size_t initlen = (init == NULL) ? 0 : strlen(init);
     return sdsnewlen(init, initlen);
 }
 
 /* Duplicate an sds string. */
+// 拷贝 sds 
 sds sdsdup(const sds s) {
     return sdsnewlen(s, sdslen(s));
 }
 
 /* Free an sds string. No operation is performed if 's' is NULL. */
+// 释放 sds　占用的内存
 void sdsfree(sds s) {
     if (s == NULL) return;
-    s_free((char*)s-sdsHdrSize(s[-1]));
+    s_free((char*)s-sdsHdrSize(s[-1]));　　// s - sds struct headersize( sds type )
 }
 
 /* Set the sds string length to the length as obtained with strlen(), so
@@ -171,6 +178,7 @@ void sdsfree(sds s) {
  * The output will be "2", but if we comment out the call to sdsupdatelen()
  * the output will be "6" as the string was modified but the logical length
  * remains 6 bytes. */
+// 更新 sds len 的值 根据 C 字符串 以 null 结尾
 void sdsupdatelen(sds s) {
     int reallen = strlen(s);
     sdssetlen(s, reallen);
@@ -180,6 +188,7 @@ void sdsupdatelen(sds s) {
  * However all the existing buffer is not discarded but set as free space
  * so that next append operations will not require allocations up to the
  * number of bytes previously available. */
+// 设置 sds 为空 但是 sds 占用空间未释放 方便下次的追加
 void sdsclear(sds s) {
     sdssetlen(s, 0);
     s[0] = '\0';
@@ -191,6 +200,7 @@ void sdsclear(sds s) {
  *
  * Note: this does not change the *length* of the sds string as returned
  * by sdslen(), but only the free buffer space we have. */
+// 增加 sds 占用的空间 使其足够容纳 addlen + 1(null byte)
 sds sdsMakeRoomFor(sds s, size_t addlen) {
     void *sh, *newsh;
     size_t avail = sdsavail(s);
