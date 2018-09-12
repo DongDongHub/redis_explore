@@ -37,6 +37,8 @@
 /* Check the length of a number of objects to see if we need to convert a
  * ziplist to a real hash. Note that we only check string encoded objects
  * as their string length can be queried in constant time. */
+// 检查是否有必要将 hash 的底层的实现从 ziplist 转化成用 hash 来实现。
+// argv 输入的参数的数组 start, end 带检测的参数的起始和结束的位置
 void hashTypeTryConversion(robj *o, robj **argv, int start, int end) {
     int i;
 
@@ -62,6 +64,7 @@ void hashTypeTryObjectEncoding(robj *subject, robj **o1, robj **o2) {
 
 /* Get the value from a ziplist encoded hash, identified by field.
  * Returns -1 when the field cannot be found. */
+//从 ziplist 中获取 指定 field 的元素
 int hashTypeGetFromZiplist(robj *o, robj *field,
                            unsigned char **vstr,
                            unsigned int *vlen,
@@ -98,6 +101,7 @@ int hashTypeGetFromZiplist(robj *o, robj *field,
 
 /* Get the value from a hash table encoded hash, identified by field.
  * Returns -1 when the field cannot be found. */
+//从 hash 中获取 指定 field 的元素
 int hashTypeGetFromHashTable(robj *o, robj *field, robj **value) {
     dictEntry *de;
 
@@ -115,6 +119,7 @@ int hashTypeGetFromHashTable(robj *o, robj *field, robj **value) {
  *
  * The lower level function can prevent copy on write so it is
  * the preferred way of doing read operations. */
+
 robj *hashTypeGetObject(robj *o, robj *field) {
     robj *value = NULL;
 
@@ -189,6 +194,7 @@ int hashTypeExists(robj *o, robj *field) {
  * Return 0 on insert and 1 on update.
  * This function will take care of incrementing the reference count of the
  * retained fields and value objects. */
+// 1. check if field exist 2. append or insert 
 int hashTypeSet(robj *o, robj *field, robj *value) {
     int update = 0;
 
@@ -482,14 +488,16 @@ void hashTypeConvert(robj *o, int enc) {
 /*-----------------------------------------------------------------------------
  * Hash type commands
  *----------------------------------------------------------------------------*/
-
+//1. 查找 或 创建 指定的 hash object 
+//2. check 是否需要更换 hash object 的底层的实现， 对 key, value 进行编码
+//3. 调用 hashTypeAdd => 底层调用 ziplist 或者 dict 具体调用来执行
 void hsetCommand(client *c) {
     int update;
     robj *o;
 
     if ((o = hashTypeLookupWriteOrCreate(c,c->argv[1])) == NULL) return;
     hashTypeTryConversion(o,c->argv,2,3);
-    hashTypeTryObjectEncoding(o,&c->argv[2], &c->argv[3]);
+    hashTypeTryObjectEncoding(o,&c->argv[2], &c->argv[3]);  //针对 dict 的 key 和 value 都是经过编码的
     update = hashTypeSet(o,c->argv[2],c->argv[3]);
     addReply(c, update ? shared.czero : shared.cone);
     signalModifiedKey(c->db,c->argv[1]);

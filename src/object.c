@@ -356,6 +356,7 @@ int isObjectRepresentableAsLongLong(robj *o, long long *llval) {
 }
 
 /* Try to encode a string object in order to save space */
+//试着对字符串对象进行编码
 robj *tryObjectEncoding(robj *o) {
     long value;
     sds s = o->ptr;
@@ -370,22 +371,25 @@ robj *tryObjectEncoding(robj *o) {
     /* We try some specialized encoding only for objects that are
      * RAW or EMBSTR encoded, in other words objects that are still
      * in represented by an actually array of chars. */
+    // 仅仅针对 字符串编码的对象
     if (!sdsEncodedObject(o)) return o;
 
     /* It's not safe to encode shared objects: shared objects can be shared
      * everywhere in the "object space" of Redis and may end in places where
      * they are not handled. We handle them only as values in the keyspace. */
+    // 仅仅在 refcount == 1 时进行编码， 避免对共享对象进行编码
      if (o->refcount > 1) return o;
 
     /* Check if we can represent this string as a long integer.
      * Note that we are sure that a string larger than 20 chars is not
      * representable as a 32 nor 64 bit integer. */
     len = sdslen(s);
-    if (len <= 20 && string2l(s,len,&value)) {
+    if (len <= 20 && string2l(s,len,&value)) {// 检查当前的字符串是否可以用整型来进行编码
         /* This object is encodable as a long. Try to use a shared object.
          * Note that we avoid using shared integers when maxmemory is used
          * because every object needs to have a private LRU field for the LRU
          * algorithm to work well. */
+         // 当我们的 maxmemory    未被指定 或者 maxmemory_policy    != MAXMEMORY_VOLATILE_LRU MAXMEMORY_ALLKEYS_LRU 时避免使用共享对象
         if ((server.maxmemory == 0 ||
              (server.maxmemory_policy != MAXMEMORY_VOLATILE_LRU &&
               server.maxmemory_policy != MAXMEMORY_ALLKEYS_LRU)) &&
@@ -395,7 +399,7 @@ robj *tryObjectEncoding(robj *o) {
             decrRefCount(o);
             incrRefCount(shared.integers[value]);
             return shared.integers[value];
-        } else {
+        } else {  //将该 sds 对象编码为 整型
             if (o->encoding == OBJ_ENCODING_RAW) sdsfree(o->ptr);
             o->encoding = OBJ_ENCODING_INT;
             o->ptr = (void*) value;
@@ -407,6 +411,7 @@ robj *tryObjectEncoding(robj *o) {
      * try the EMBSTR encoding which is more efficient.
      * In this representation the object and the SDS string are allocated
      * in the same chunk of memory to save space and cache misses. */
+ 	// raw string => embstr
     if (len <= OBJ_ENCODING_EMBSTR_SIZE_LIMIT) {
         robj *emb;
 
@@ -426,7 +431,7 @@ robj *tryObjectEncoding(robj *o) {
      * is only entered if the length of the string is greater than
      * OBJ_ENCODING_EMBSTR_SIZE_LIMIT. */
     if (o->encoding == OBJ_ENCODING_RAW &&
-        sdsavail(s) > len/10)
+        sdsavail(s) > len/10)  //给 sds 留大约 十分之一的余量
     {
         o->ptr = sdsRemoveFreeSpace(o->ptr);
     }
@@ -437,6 +442,7 @@ robj *tryObjectEncoding(robj *o) {
 
 /* Get a decoded version of an encoded object (returned as a new object).
  * If the object is already raw-encoded just increment the ref count. */
+// 获取 o 所指对象的 sds 对象
 robj *getDecodedObject(robj *o) {
     robj *dec;
 
@@ -523,6 +529,7 @@ int equalStringObjects(robj *a, robj *b) {
     }
 }
 
+//返回 该对象编码的字符串的长度
 size_t stringObjectLen(robj *o) {
     serverAssertWithInfo(NULL,o,o->type == OBJ_STRING);
     if (sdsEncodedObject(o)) {

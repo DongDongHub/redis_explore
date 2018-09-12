@@ -361,7 +361,7 @@ dictEntry *dictAddRaw(dict *d, void *key)
      * system it is more likely that recently added entries are accessed
      * more frequently. */
     ht = dictIsRehashing(d) ? &d->ht[1] : &d->ht[0];
-    entry = zmalloc(sizeof(*entry));
+    entry = zmalloc(sizeof(*entry));  //添加 entry 到 ht 里面再设置 entry 的key 的值
     entry->next = ht->table[index];
     ht->table[index] = entry;
     ht->used++;
@@ -1079,4 +1079,4 @@ void dictGetStats(char *buf, size_t bufsize, dict *d) {
     }
     /* Make sure there is a NULL term at the end. */
     if (orig_bufsize) orig_buf[orig_bufsize-1] = '\0';
-}
+} 

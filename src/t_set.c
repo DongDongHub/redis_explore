@@ -28,7 +28,7 @@
  */
 
 #include "server.h"
-
+//set 有两种底层的实现方案 1. intset 2.dict
 /*-----------------------------------------------------------------------------
  * Set Commands
  *----------------------------------------------------------------------------*/
@@ -40,7 +40,7 @@ void sunionDiffGenericCommand(client *c, robj **setkeys, int setnum,
  * an integer-encodable value, an intset will be returned. Otherwise a regular
  * hash table. */
 robj *setTypeCreate(robj *value) {
-    if (isObjectRepresentableAsLongLong(value,NULL) == C_OK)
+    if (isObjectRepresentableAsLongLong(value,NULL) == C_OK)  //判断 value 是否可编码为 longlong 类型的字符串 如果是则创建 intset 类型的对象 
         return createIntsetObject();
     return createSetObject();
 }
@@ -50,9 +50,10 @@ robj *setTypeCreate(robj *value) {
  *
  * If the value was already member of the set, nothing is done and 0 is
  * returned, otherwise the new element is added and 1 is returned. */
+ 
 int setTypeAdd(robj *subject, robj *value) {
     long long llval;
-    if (subject->encoding == OBJ_ENCODING_HT) {
+    if (subject->encoding == OBJ_ENCODING_HT) {//subject 的encoding 类型 是 ht 时
         if (dictAdd(subject->ptr,value,NULL) == DICT_OK) {
             incrRefCount(value);
             return 1;

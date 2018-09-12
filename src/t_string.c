@@ -33,7 +33,7 @@
 /*-----------------------------------------------------------------------------
  * String Commands
  *----------------------------------------------------------------------------*/
-
+// 检查 字符串长度 是否大于 512Mb
 static int checkStringLength(client *c, long long size) {
     if (size > 512*1024*1024) {
         addReplyError(c,"string exceeds maximum allowed size (512MB)");
@@ -181,6 +181,7 @@ void getsetCommand(client *c) {
     server.dirty++;
 }
 
+//设置字符串的 子字符串的值
 void setrangeCommand(client *c) {
     robj *o;
     long offset;
@@ -241,6 +242,7 @@ void setrangeCommand(client *c) {
     addReplyLongLong(c,sdslen(o->ptr));
 }
 
+//获取字符串的子字符串 
 void getrangeCommand(client *c) {
     robj *o;
     long long start, end;
@@ -282,6 +284,7 @@ void getrangeCommand(client *c) {
     }
 }
 
+//批量获取多个键值对
 void mgetCommand(client *c) {
     int j;
 
@@ -300,6 +303,8 @@ void mgetCommand(client *c) {
     }
 }
 
+//批量设置多个键值对 
+//nx => 如果 key 不存在时 才设置
 void msetGenericCommand(client *c, int nx) {
     int j, busykeys = 0;
 
@@ -338,6 +343,7 @@ void msetnxCommand(client *c) {
     msetGenericCommand(c,1);
 }
 
+//对 key 指定的 val 指向增加 inc 操作
 void incrDecrCommand(client *c, long long incr) {
     long long value, oldvalue;
     robj *o, *new;
@@ -398,18 +404,19 @@ void decrbyCommand(client *c) {
     incrDecrCommand(c,-incr);
 }
 
+//对 key 对应的 val 增加浮点数 dval
 void incrbyfloatCommand(client *c) {
     long double incr, value;
     robj *o, *new, *aux;
 
     o = lookupKeyWrite(c->db,c->argv[1]);
-    if (o != NULL && checkType(c,o,OBJ_STRING)) return;
+    if (o != NULL && checkType(c,o,OBJ_STRING)) return;  //如果 key 存在 但是 val 的值不是字符串类型的 则返回
     if (getLongDoubleFromObjectOrReply(c,o,&value,NULL) != C_OK ||
         getLongDoubleFromObjectOrReply(c,c->argv[2],&incr,NULL) != C_OK)
         return;
 
     value += incr;
-    if (isnan(value) || isinf(value)) {
+    if (isnan(value) || isinf(value)) {  //溢出 或是 非数字
         addReplyError(c,"increment would produce NaN or Infinity");
         return;
     }
@@ -426,18 +433,23 @@ void incrbyfloatCommand(client *c) {
     /* Always replicate INCRBYFLOAT as a SET command with the final value
      * in order to make sure that differences in float precision or formatting
      * will not create differences in replicas or after an AOF restart. */
+    //对于 aof 而言 append 会被转化为 set 指令来进行保存
     aux = createStringObject("SET",3);
     rewriteClientCommandArgument(c,0,aux);
     decrRefCount(aux);
     rewriteClientCommandArgument(c,2,new);
 }
 
+//对 key 对应的 val 的长度进行追加
+//1. key 不存在
+//2. key 存在 先增加长度 memcpy
+//param argv[] => 0 append 1 key 2 val
 void appendCommand(client *c) {
     size_t totlen;
     robj *o, *append;
 
     o = lookupKeyWrite(c->db,c->argv[1]);
-    if (o == NULL) {
+    if (o == NULL) {  //key 不存在
         /* Create the key */
         c->argv[2] = tryObjectEncoding(c->argv[2]);
         dbAdd(c->db,c->argv[1],c->argv[2]);
@@ -451,7 +463,7 @@ void appendCommand(client *c) {
         /* "append" is an argument, so always an sds */
         append = c->argv[2];
         totlen = stringObjectLen(o)+sdslen(append->ptr);
-        if (checkStringLength(c,totlen) != C_OK)
+        if (checkStringLength(c,totlen) != C_OK)  //检查合并之后 的字符串是否会超长
             return;
 
         /* Append the value */
@@ -462,12 +474,14 @@ void appendCommand(client *c) {
     signalModifiedKey(c->db,c->argv[1]);
     notifyKeyspaceEvent(NOTIFY_STRING,"append",c->argv[1],c->db->id);
     server.dirty++;
-    addReplyLongLong(c,totlen);
+    addReplyLongLong(c,totlen); //返回该key 对应的val 的总长度
 }
 
+
+//返回 key 对应的 val 的长度
 void strlenCommand(client *c) {
     robj *o;
     if ((o = lookupKeyReadOrReply(c,c->argv[1],shared.czero)) == NULL ||
-        checkType(c,o,OBJ_STRING)) return;
+        checkType(c,o,OBJ_STRING)) return;  //1. 检查 key 对应的键值对是否存在。 2. 检查返回对象的 val 值是否是字符串诶下
     addReplyLongLong(c,stringObjectLen(o));
 }

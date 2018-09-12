@@ -495,6 +495,7 @@ unsigned int dictSdsCaseHash(const void *key) {
     return dictGenCaseHashFunction((unsigned char*)key, sdslen((char*)key));
 }
 
+//dict key 的比较 key1 和 key2 均是指向 robj 对象的指针, 需要注意 底层编码 不同的情况
 int dictEncObjKeyCompare(void *privdata, const void *key1,
         const void *key2)
 {

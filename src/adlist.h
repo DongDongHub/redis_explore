@@ -32,13 +32,14 @@
 #define __ADLIST_H__
 
 /* Node, List, and Iterator are the only data structures used currently. */
-
+// List 的 value 部分里面存储的是 robj 的对象
 typedef struct listNode {
     struct listNode *prev;
     struct listNode *next;
     void *value;
 } listNode;
 
+// List 的迭代器
 typedef struct listIter {
     listNode *next;
     int direction;
@@ -47,27 +48,32 @@ typedef struct listIter {
 typedef struct list {
     listNode *head;
     listNode *tail;
-    void *(*dup)(void *ptr);
+    void *(*dup)(void *ptr); 
     void (*free)(void *ptr);
-    int (*match)(void *ptr, void *key);
+    int (*match)(void *ptr, void *key);  //比较 函数 比较节点的 value 是否相等
     unsigned long len;
 } list;
 
 /* Functions implemented as macros */
+//对 List 进行操作
 #define listLength(l) ((l)->len)
 #define listFirst(l) ((l)->head)
 #define listLast(l) ((l)->tail)
-#define listPrevNode(n) ((n)->prev)
-#define listNextNode(n) ((n)->next)
-#define listNodeValue(n) ((n)->value)
-
+//设置 List 的回调函数
 #define listSetDupMethod(l,m) ((l)->dup = (m))
 #define listSetFreeMethod(l,m) ((l)->free = (m))
 #define listSetMatchMethod(l,m) ((l)->match = (m))
 
+//获取 List 的回调函数
 #define listGetDupMethod(l) ((l)->dup)
 #define listGetFree(l) ((l)->free)
 #define listGetMatchMethod(l) ((l)->match)
+
+//对 ListNode 进行操作
+#define listPrevNode(n) ((n)->prev)
+#define listNextNode(n) ((n)->next)
+#define listNodeValue(n) ((n)->value)
+
 
 /* Prototypes */
 list *listCreate(void);

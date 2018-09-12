@@ -38,6 +38,7 @@
  * by the user before to call AlFreeList().
  *
  * On error, NULL is returned. Otherwise the pointer to the new list. */
+// 创建一个 List 对象 可以被 AlFreeList 释放，但是 ListNode 持有的 value 指针需要单独的释放
 list *listCreate(void)
 {
     struct list *list;
@@ -55,6 +56,7 @@ list *listCreate(void)
 /* Free the whole list.
  *
  * This function can't fail. */
+//释放整个 List 占用的内存 1.先释放 ListNode 2. 释放List
 void listRelease(list *list)
 {
     unsigned long len;
@@ -64,11 +66,11 @@ void listRelease(list *list)
     len = list->len;
     while(len--) {
         next = current->next;
-        if (list->free) list->free(current->value);
-        zfree(current);
+        if (list->free) list->free(current->value);  // 1 free Listnode value ptr robj
+        zfree(current);  //2 free Listnode
         current = next;
     }
-    zfree(list);
+    zfree(list);  //3 free List
 }
 
 /* Add a new node to the list, to head, containing the specified 'value'
@@ -77,6 +79,10 @@ void listRelease(list *list)
  * On error, NULL is returned and no operation is performed (i.e. the
  * list remains unaltered).
  * On success the 'list' pointer you pass to the function is returned. */
+// 添加一个元素到表头 error 返回 NULL
+// 1 create list node contain value
+// 2 len == 0 list  head=tail=new node, new node.prev node.next = null
+// 3 len > 0  list  newnode.next = list.head list.head.prev = newnode list.head = newnode newhead.prev = null 
 list *listAddNodeHead(list *list, void *value)
 {
     listNode *node;
@@ -103,6 +109,7 @@ list *listAddNodeHead(list *list, void *value)
  * On error, NULL is returned and no operation is performed (i.e. the
  * list remains unaltered).
  * On success the 'list' pointer you pass to the function is returned. */
+//添加元素到表尾
 list *listAddNodeTail(list *list, void *value)
 {
     listNode *node;
@@ -122,6 +129,12 @@ list *listAddNodeTail(list *list, void *value)
     list->len++;
     return list;
 }
+
+//插入新的元素
+//param after 偏移量？ 最终的下标 = index(old node) + after
+//1 create value list node
+//2 find final pos
+//3 modify node prev or after
 
 list *listInsertNode(list *list, listNode *old_node, void *value, int after) {
     listNode *node;
@@ -156,6 +169,7 @@ list *listInsertNode(list *list, listNode *old_node, void *value, int after) {
  * It's up to the caller to free the private value of the node.
  *
  * This function can't fail. */
+//释放节点占用的内存
 void listDelNode(list *list, listNode *node)
 {
     if (node->prev)
@@ -175,6 +189,7 @@ void listDelNode(list *list, listNode *node)
  * call to listNext() will return the next element of the list.
  *
  * This function can't fail. */
+//获取列表的迭代器 iter 
 listIter *listGetIterator(list *list, int direction)
 {
     listIter *iter;
@@ -194,11 +209,13 @@ void listReleaseIterator(listIter *iter) {
 }
 
 /* Create an iterator in the list private iterator structure */
+//在已有的迭代器上重置到其它的 list 的 head
 void listRewind(list *list, listIter *li) {
     li->next = list->head;
     li->direction = AL_START_HEAD;
 }
 
+//在已有的迭代器上重置到其它的 list 的 tail
 void listRewindTail(list *list, listIter *li) {
     li->next = list->tail;
     li->direction = AL_START_TAIL;
@@ -218,6 +235,8 @@ void listRewindTail(list *list, listIter *li) {
  * }
  *
  * */
+ 
+//返回下一个元素的 iterator 
 listNode *listNext(listIter *iter)
 {
     listNode *current = iter->next;
@@ -239,6 +258,10 @@ listNode *listNext(listIter *iter)
  * the original node is used as value of the copied node.
  *
  * The original list both on success or error is never modified. */
+// 复制 整个 List 有 list.dup 来复制 list node 的 value
+// step 
+// 1 create emtpy list
+// 2 iterator src list attention the order
 list *listDup(list *orig)
 {
     list *copy;
@@ -279,6 +302,7 @@ list *listDup(list *orig)
  * On success the first matching node pointer is returned
  * (search starts from head). If no matching node exists
  * NULL is returned. */
+//list 的 key 的查找 如果list 有提供 match 则用 match 来比较 否则 直接比较指针 
 listNode *listSearchKey(list *list, void *key)
 {
     listIter iter;
@@ -304,6 +328,9 @@ listNode *listSearchKey(list *list, void *key)
  * and so on. Negative integers are used in order to count
  * from the tail, -1 is the last element, -2 the penultimate
  * and so on. If the index is out of range NULL is returned. */
+//返回列表中基于下标 index 的元素
+//filiter target index 
+
 listNode *listIndex(list *list, long index) {
     listNode *n;
 
@@ -319,6 +346,7 @@ listNode *listIndex(list *list, long index) {
 }
 
 /* Rotate the list removing the tail node and inserting it to the head. */
+//旋转 list
 void listRotate(list *list) {
     listNode *tail = list->tail;
 
