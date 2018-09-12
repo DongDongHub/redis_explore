@@ -31,10 +31,12 @@
 
 #include <sys/epoll.h>
 
+// aeApiState 的定义
 typedef struct aeApiState {
-    int epfd;
-    struct epoll_event *events;
+    int epfd;  					//epoll fd sign kernel event table
+    struct epoll_event *events; //store ready events
 } aeApiState;
+
 
 static int aeApiCreate(aeEventLoop *eventLoop) {
     aeApiState *state = zmalloc(sizeof(aeApiState));
@@ -44,7 +46,8 @@ static int aeApiCreate(aeEventLoop *eventLoop) {
     if (!state->events) {
         zfree(state);
         return -1;
-    }
+    }//初始化 apiState 变量
+	
     state->epfd = epoll_create(1024); /* 1024 is just a hint for the kernel */
     if (state->epfd == -1) {
         zfree(state->events);
@@ -55,6 +58,7 @@ static int aeApiCreate(aeEventLoop *eventLoop) {
     return 0;
 }
 
+// resize api state 内的 events 的数组的长度
 static int aeApiResize(aeEventLoop *eventLoop, int setsize) {
     aeApiState *state = eventLoop->apidata;
 
@@ -62,6 +66,7 @@ static int aeApiResize(aeEventLoop *eventLoop, int setsize) {
     return 0;
 }
 
+// free 释放 epoll fd and events 占用空间
 static void aeApiFree(aeEventLoop *eventLoop) {
     aeApiState *state = eventLoop->apidata;
 
@@ -70,6 +75,7 @@ static void aeApiFree(aeEventLoop *eventLoop) {
     zfree(state);
 }
 
+// 为事件循环添加  或修改文件描述符 文件描述符
 static int aeApiAddEvent(aeEventLoop *eventLoop, int fd, int mask) {
     aeApiState *state = eventLoop->apidata;
     struct epoll_event ee = {0}; /* avoid valgrind warning */
@@ -79,7 +85,7 @@ static int aeApiAddEvent(aeEventLoop *eventLoop, int fd, int mask) {
             EPOLL_CTL_ADD : EPOLL_CTL_MOD;
 
     ee.events = 0;
-    mask |= eventLoop->events[fd].mask; /* Merge old events */
+    mask |= eventLoop->events[fd].mask; /* Merge old events fd <  eventLoop->events 的length */
     if (mask & AE_READABLE) ee.events |= EPOLLIN;
     if (mask & AE_WRITABLE) ee.events |= EPOLLOUT;
     ee.data.fd = fd;
@@ -87,6 +93,7 @@ static int aeApiAddEvent(aeEventLoop *eventLoop, int fd, int mask) {
     return 0;
 }
 
+// 为事件循环删除 fd
 static void aeApiDelEvent(aeEventLoop *eventLoop, int fd, int delmask) {
     aeApiState *state = eventLoop->apidata;
     struct epoll_event ee = {0}; /* avoid valgrind warning */
@@ -105,6 +112,7 @@ static void aeApiDelEvent(aeEventLoop *eventLoop, int fd, int delmask) {
     }
 }
 
+// epoll 监控时间循环的 文件描述符集合
 static int aeApiPoll(aeEventLoop *eventLoop, struct timeval *tvp) {
     aeApiState *state = eventLoop->apidata;
     int retval, numevents = 0;

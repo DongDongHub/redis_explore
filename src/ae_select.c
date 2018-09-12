@@ -84,7 +84,7 @@ static int aeApiPoll(aeEventLoop *eventLoop, struct timeval *tvp) {
     retval = select(eventLoop->maxfd+1,
                 &state->_rfds,&state->_wfds,NULL,tvp);
     if (retval > 0) {
-        for (j = 0; j <= eventLoop->maxfd; j++) {
+        for (j = 0; j <= eventLoop->maxfd; j++) {  //根据 eventloop 里面的注册的 socket 的来检查 它们是否在 _rset 或者 _wset 里面来判断
             int mask = 0;
             aeFileEvent *fe = &eventLoop->events[j];
 
