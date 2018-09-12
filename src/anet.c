@@ -58,6 +58,7 @@ static void anetSetError(char *err, const char *fmt, ...)
     va_end(ap);
 }
 
+//设置文件描述符为阻塞或者非阻塞
 int anetSetBlock(char *err, int fd, int non_block) {
     int flags;
 
@@ -265,6 +266,7 @@ static int anetCreateSocket(char *err, int domain) {
 #define ANET_CONNECT_NONE 0
 #define ANET_CONNECT_NONBLOCK 1
 #define ANET_CONNECT_BE_BINDING 2 /* Best effort binding. */
+// 创建 tcp 连接 可以分为 阻塞 和 非阻塞 根据 source_addr 来判断是否要绑定到 某个指定的 ip 上
 static int anetTcpGenericConnect(char *err, char *addr, int port,
                                  char *source_addr, int flags)
 {
@@ -369,6 +371,7 @@ int anetTcpNonBlockBestEffortBindConnect(char *err, char *addr, int port,
             ANET_CONNECT_NONBLOCK|ANET_CONNECT_BE_BINDING);
 }
 
+// unix 域的 client 的连接
 int anetUnixGenericConnect(char *err, char *path, int flags)
 {
     int s;
@@ -427,7 +430,7 @@ int anetWrite(int fd, char *buf, int count)
     ssize_t nwritten, totlen = 0;
     while(totlen != count) {
         nwritten = write(fd,buf,count-totlen);
-        if (nwritten == 0) return totlen;
+        if (nwritten == 0) return totlen;  //may write interrupt by signal
         if (nwritten == -1) return -1;
         totlen += nwritten;
         buf += nwritten;
@@ -460,6 +463,7 @@ static int anetV6Only(char *err, int s) {
     return ANET_OK;
 }
 
+//创建 tcp server
 static int _anetTcpServer(char *err, int port, char *bindaddr, int af, int backlog)
 {
     int s = -1, rv;
@@ -508,6 +512,7 @@ int anetTcp6Server(char *err, int port, char *bindaddr, int backlog)
     return _anetTcpServer(err, port, bindaddr, AF_INET6, backlog);
 }
 
+//创建 unix_domain 的服务器
 int anetUnixServer(char *err, char *path, mode_t perm, int backlog)
 {
     int s;
@@ -528,7 +533,7 @@ int anetUnixServer(char *err, char *path, mode_t perm, int backlog)
 
 static int anetGenericAccept(char *err, int s, struct sockaddr *sa, socklen_t *len) {
     int fd;
-    while(1) {
+    while(1) { //至少取一个 socket 如果没有就返回错误信息
         fd = accept(s,sa,len);
         if (fd == -1) {
             if (errno == EINTR)
@@ -543,6 +548,7 @@ static int anetGenericAccept(char *err, int s, struct sockaddr *sa, socklen_t *l
     return fd;
 }
 
+//tcp 类型的 accept 并返回
 int anetTcpAccept(char *err, int s, char *ip, size_t ip_len, int *port) {
     int fd;
     struct sockaddr_storage sa;
@@ -562,6 +568,7 @@ int anetTcpAccept(char *err, int s, char *ip, size_t ip_len, int *port) {
     return fd;
 }
 
+// unix_domain 域 类型的 socket 的 accept 方法 
 int anetUnixAccept(char *err, int s) {
     int fd;
     struct sockaddr_un sa;
@@ -617,6 +624,7 @@ int anetFormatAddr(char *buf, size_t buf_len, char *ip, int port) {
 }
 
 /* Like anetFormatAddr() but extract ip and port from the socket's peer. */
+// format 文件描述符fd 另一端的 ip 和 port 信息
 int anetFormatPeer(int fd, char *buf, size_t buf_len) {
     char ip[INET6_ADDRSTRLEN];
     int port;
@@ -647,6 +655,7 @@ int anetSockName(int fd, char *ip, size_t ip_len, int *port) {
     return 0;
 }
 
+// format 文件描述符fd 对应的 ip 和 port 信息
 int anetFormatSock(int fd, char *fmt, size_t fmt_len) {
     char ip[INET6_ADDRSTRLEN];
     int port;

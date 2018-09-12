@@ -36,6 +36,7 @@ static void setProtocolError(client *c, int pos);
 /* Return the size consumed from the allocator, for the specified SDS string,
  * including internal fragmentation. This function is used in order to compute
  * the client output buffer size. */
+//获取 sds 所占用的字节数
 size_t sdsZmallocSize(sds s) {
     void *sh = sdsAllocPtr(s);
     return zmalloc_size(sh);
@@ -43,24 +44,28 @@ size_t sdsZmallocSize(sds s) {
 
 /* Return the amount of memory used by the sds string at object->ptr
  * for a string object. */
+// 获取 字符串 robj 占用的字节数
 size_t getStringObjectSdsUsedMemory(robj *o) {
     serverAssertWithInfo(NULL,o,o->type == OBJ_STRING);
     switch(o->encoding) {
-    case OBJ_ENCODING_RAW: return sdsZmallocSize(o->ptr);
-    case OBJ_ENCODING_EMBSTR: return zmalloc_size(o)-sizeof(robj);
+    case OBJ_ENCODING_RAW: return sdsZmallocSize(o->ptr); //分两次进行分配空间 第一次分配 robj 第二次分配 sds
+    case OBJ_ENCODING_EMBSTR: return zmalloc_size(o)-sizeof(robj);  //分一次进行分配空间 ptr 指向连续的空间
     default: return 0; /* Just integer encoding for now. */
     }
 }
 
+//复制 o 所指的对象
 void *dupClientReplyValue(void *o) {
     incrRefCount((robj*)o);
     return o;
 }
 
+//列表 match 对象 该对象可能是 字符串 或者数字 底层的encoding 类型
 int listMatchObjects(void *a, void *b) {
     return equalStringObjects(a,b);
 }
 
+//创建一个 客户端
 client *createClient(int fd) {
     client *c = zmalloc(sizeof(client));
 
@@ -68,6 +73,7 @@ client *createClient(int fd) {
      * This is useful since all the commands needs to be executed
      * in the context of a client. When commands are executed in other
      * contexts (for instance a Lua script) we need a non connected client. */
+    //当 fd == -1 时表示当前创建的 是一个伪客户端 
     if (fd != -1) {
         anetNonBlock(NULL,fd);
         anetEnableTcpNoDelay(NULL,fd);
