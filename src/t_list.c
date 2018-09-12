@@ -38,10 +38,10 @@
  *
  * There is no need for the caller to increment the refcount of 'value' as
  * the function takes care of it if needed. */
-void listTypePush(robj *subject, robj *value, int where) {
+void listTypePush(robj *subject, robj *value, int where) { //list 只用 quicklist 的类型来编码 底层
     if (subject->encoding == OBJ_ENCODING_QUICKLIST) {
         int pos = (where == LIST_HEAD) ? QUICKLIST_HEAD : QUICKLIST_TAIL;
-        value = getDecodedObject(value);
+        value = getDecodedObject(value); //获取对象的 ref->ptr(指向 sds 的数据类型， 如果底层是 整型 则转化成字符串类型)
         size_t len = sdslen(value->ptr);
         quicklistPush(subject->ptr, value->ptr, len, pos);
         decrRefCount(value);
@@ -50,13 +50,14 @@ void listTypePush(robj *subject, robj *value, int where) {
     }
 }
 
+// list pop 操作之后的回调函数
 void *listPopSaver(unsigned char *data, unsigned int sz) {
     return createStringObject((char*)data,sz);
 }
 
 robj *listTypePop(robj *subject, int where) {
-    long long vlong;
-    robj *value = NULL;
+    long long vlong;    //整型
+    robj *value = NULL; //字符串
 
     int ql_where = where == LIST_HEAD ? QUICKLIST_HEAD : QUICKLIST_TAIL;
     if (subject->encoding == OBJ_ENCODING_QUICKLIST) {
@@ -243,7 +244,7 @@ void pushxGenericCommand(client *c, robj *refval, robj *val, int where) {
 
     if (refval != NULL) {
         /* Seek refval from head to tail */
-        iter = listTypeInitIterator(subject,0,LIST_TAIL);
+        iter = listTypeInitIterator(subject,0,LIST_TAIL);  //对于 refval != NULL 只有在找到 refval 的情况才插入
         while (listTypeNext(iter,&entry)) {
             if (listTypeEqual(&entry,refval)) {
                 listTypeInsert(&entry,val,where);
@@ -263,7 +264,7 @@ void pushxGenericCommand(client *c, robj *refval, robj *val, int where) {
             addReply(c,shared.cnegone);
             return;
         }
-    } else {
+    } else {  //否则直接插入 val 到列表头或者列表尾
         char *event = (where == LIST_HEAD) ? "lpush" : "rpush";
 
         listTypePush(subject,val,where);
@@ -309,11 +310,11 @@ void lindexCommand(client *c) {
     robj *value = NULL;
 
     if ((getLongFromObjectOrReply(c, c->argv[2], &index, NULL) != C_OK))
-        return;
+        return;  //获取 index 的数据
 
     if (o->encoding == OBJ_ENCODING_QUICKLIST) {
         quicklistEntry entry;
-        if (quicklistIndex(o->ptr, index, &entry)) {
+        if (quicklistIndex(o->ptr, index, &entry)) { //从quicklist 中获取指定 index 的entry
             if (entry.value) {
                 value = createStringObject((char*)entry.value,entry.sz);
             } else {
@@ -329,6 +330,7 @@ void lindexCommand(client *c) {
     }
 }
 
+//替换指定下标 index 的entry 
 void lsetCommand(client *c) {
     robj *o = lookupKeyWriteOrReply(c,c->argv[1],shared.nokeyerr);
     if (o == NULL || checkType(c,o,OBJ_LIST)) return;
@@ -355,6 +357,7 @@ void lsetCommand(client *c) {
     }
 }
 
+// 弹出列表的元素 如果列表为空，则删除列表
 void popGenericCommand(client *c, int where) {
     robj *o = lookupKeyWriteOrReply(c,c->argv[1],shared.nullbulk);
     if (o == NULL || checkType(c,o,OBJ_LIST)) return;
@@ -378,10 +381,12 @@ void popGenericCommand(client *c, int where) {
     }
 }
 
+//从头部弹出
 void lpopCommand(client *c) {
     popGenericCommand(c,LIST_HEAD);
 }
 
+//从尾部弹出
 void rpopCommand(client *c) {
     popGenericCommand(c,LIST_TAIL);
 }

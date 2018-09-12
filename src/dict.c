@@ -55,6 +55,7 @@
  * Note that even when dict_can_resize is set to 0, not all resizes are
  * prevented: a hash table is still allowed to grow if the ratio between
  * the number of elements and the buckets > dict_force_resize_ratio. */
+// if  dict_can_resize = 1 当 size/buckets >= 1 时 resize 否则需要　达到　dict_force_resize_ratio　才 resize
 static int dict_can_resize = 1;
 static unsigned int dict_force_resize_ratio = 5;
 
@@ -151,7 +152,7 @@ unsigned int dictGenCaseHashFunction(const unsigned char *buf, int len) {
         hash = ((hash << 5) + hash) + (tolower(*buf++)); /* hash * 33 + c */
     return hash;
 }
-
+// 三种不同类型的 hash 函数 unsinged int, case insentive, case sentive
 /* ----------------------------- API implementation ------------------------- */
 
 /* Reset a hash table already initialized with ht_init().
@@ -189,6 +190,7 @@ int _dictInit(dict *d, dictType *type,
 
 /* Resize the table to the minimal size that contains all the elements,
  * but with the invariant of a USED/BUCKETS ratio near to <= 1 */
+//重新分配 表的大小 使 USED/BUCKETS ratio 《= 1
 int dictResize(dict *d)
 {
     int minimal;
@@ -204,7 +206,7 @@ int dictResize(dict *d)
 int dictExpand(dict *d, unsigned long size)
 {
     dictht n; /* the new hash table */
-    unsigned long realsize = _dictNextPower(size);
+    unsigned long realsize = _dictNextPower(size);  //获取最近的 大于 size 符合幂次的数
 
     /* the size is invalid if it is smaller than the number of
      * elements already inside the hash table */
@@ -242,6 +244,7 @@ int dictExpand(dict *d, unsigned long size)
  * guaranteed that this function will rehash even a single bucket, since it
  * will visit at max N*10 empty buckets in total, otherwise the amount of
  * work it does would be unbound and the function may block for a long time. */
+// 指向一个 N 个操作步骤的 增量 rehash. 返回 1 如果 还有从 old to new ht 迁移的步骤还有元素 否则返回0.
 int dictRehash(dict *d, int n) {
     int empty_visits = n*10; /* Max number of empty buckets to visit. */
     if (!dictIsRehashing(d)) return 0;

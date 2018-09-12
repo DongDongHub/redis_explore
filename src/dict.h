@@ -38,14 +38,14 @@
 #ifndef __DICT_H
 #define __DICT_H
 
-#define DICT_OK 0
-#define DICT_ERR 1
+#define DICT_OK  0  // 执行成功
+#define DICT_ERR 1  // 操作执行失败
 
 /* Unused arguments generate annoying warnings... */
 #define DICT_NOTUSED(V) ((void) V)
 
-typedef struct dictEntry {
-    void *key;
+typedef struct dictEntry {  //采用链表的方式来解决冲突
+    void *key;  //字符串类型
     union {
         void *val;
         uint64_t u64;
@@ -53,29 +53,30 @@ typedef struct dictEntry {
         double d;
     } v;
     struct dictEntry *next;
-} dictEntry;
+} dictEntry;   //字典实际存储的 entity
 
 typedef struct dictType {
-    unsigned int (*hashFunction)(const void *key);
-    void *(*keyDup)(void *privdata, const void *key);
-    void *(*valDup)(void *privdata, const void *obj);
-    int (*keyCompare)(void *privdata, const void *key1, const void *key2);
-    void (*keyDestructor)(void *privdata, void *key);
-    void (*valDestructor)(void *privdata, void *obj);
-} dictType;
+    unsigned int (*hashFunction)(const void *key);      //计算 key 的 hash 值
+    void *(*keyDup)(void *privdata, const void *key);   //key 的拷贝函数
+    void *(*valDup)(void *privdata, const void *obj);   //val 的拷贝函数
+    int (*keyCompare)(void *privdata, const void *key1, const void *key2);  //key 的比较函数
+    void (*keyDestructor)(void *privdata, void *key);  //key 的销毁函数
+    void (*valDestructor)(void *privdata, void *obj);  //val 的销毁函数
+} dictType;  //不同类型的 元素用的 dictType 包含一组函数的接口
 
 /* This is our hash table structure. Every dictionary has two of this as we
  * implement incremental rehashing, for the old to the new table. */
 typedef struct dictht {
     dictEntry **table;
-    unsigned long size;
-    unsigned long sizemask;
-    unsigned long used;
-} dictht;
+    unsigned long size;  //ht slot 的个数 ？
+    unsigned long sizemask;  //ht 的slot 的个数
+    unsigned long used;  //ht 内存储的元素的个数
+} dictht;  //dict 实际的 ht 存储结构
 
+// 包含两个 ht  在进行增量 rehash 的时候使用
 typedef struct dict {
     dictType *type;
-    void *privdata;
+    void *privdata;  //存储的 ？
     dictht ht[2];
     long rehashidx; /* rehashing not in progress if rehashidx == -1 */
     int iterators; /* number of iterators currently running */
@@ -91,13 +92,13 @@ typedef struct dictIterator {
     int table, safe;
     dictEntry *entry, *nextEntry;
     /* unsafe iterator fingerprint for misuse detection. */
-    long long fingerprint;
+    long long fingerprint;  //当 dictIterator是 unsafe 的时候使用
 } dictIterator;
 
 typedef void (dictScanFunction)(void *privdata, const dictEntry *de);
 
 /* This is the initial size of every hash table */
-#define DICT_HT_INITIAL_SIZE     4
+#define DICT_HT_INITIAL_SIZE     4 // ht 的初始的尺寸大小 
 
 /* ------------------------------- Macros ------------------------------------*/
 #define dictFreeVal(d, entry) \
@@ -111,13 +112,13 @@ typedef void (dictScanFunction)(void *privdata, const dictEntry *de);
         entry->v.val = (_val_); \
 } while(0)
 
-#define dictSetSignedIntegerVal(entry, _val_) \
+#define dictSetSignedIntegerVal(entry, _val_) \  //设置 dictEntry v 值为 signed int64 位的值
     do { entry->v.s64 = _val_; } while(0)
 
-#define dictSetUnsignedIntegerVal(entry, _val_) \
+#define dictSetUnsignedIntegerVal(entry, _val_) \ //设置 dictEntry v 值为 unsigned int64 位的值
     do { entry->v.u64 = _val_; } while(0)
 
-#define dictSetDoubleVal(entry, _val_) \
+#define dictSetDoubleVal(entry, _val_) \  //设置 dictEntry v 值为 double 位的值
     do { entry->v.d = _val_; } while(0)
 
 #define dictFreeKey(d, entry) \
@@ -142,8 +143,8 @@ typedef void (dictScanFunction)(void *privdata, const dictEntry *de);
 #define dictGetSignedIntegerVal(he) ((he)->v.s64)
 #define dictGetUnsignedIntegerVal(he) ((he)->v.u64)
 #define dictGetDoubleVal(he) ((he)->v.d)
-#define dictSlots(d) ((d)->ht[0].size+(d)->ht[1].size)
-#define dictSize(d) ((d)->ht[0].used+(d)->ht[1].used)
+#define dictSlots(d) ((d)->ht[0].size+(d)->ht[1].size)  //获取 slots 的总个数
+#define dictSize(d) ((d)->ht[0].used+(d)->ht[1].used)   //获取 ht[0-1] 存储的元素的个数
 #define dictIsRehashing(d) ((d)->rehashidx != -1)
 
 /* API */
