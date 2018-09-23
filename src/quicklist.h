@@ -55,7 +55,8 @@ typedef struct quicklistNode {
     unsigned int extra : 10; /* more bits to steal for future usage */
 } quicklistNode;
 
-// quicklistLZF 是个 4 + N 个字节的结构体保存 sz 指向的地址, 当 quicklistNode->zl 指向压缩对象时，node->z1 指向的是一个 quicklistLZF 否则是一个压缩列表
+// quicklistLZF 是个 4 + N 个字节的结构体保存 sz 指向的地址, 当 quicklistNode->zl 指向压缩对象时，node->z1 指向的是一个 quicklistLZF 否则是一个压缩列表 
+// quicklistNode->sz 存储未压缩时的长度
 /* quicklistLZF is a 4+N byte struct holding 'sz' followed by 'compressed'.
  * 'sz' is byte length of 'compressed' field.
  * 'compressed' is LZF data with total (compressed) length 'sz'

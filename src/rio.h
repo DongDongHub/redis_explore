@@ -50,6 +50,7 @@ struct _rio {
      * and len fields pointing to the new block of data to add to the checksum
      * computation. */
     void (*update_cksum)(struct _rio *, const void *buf, size_t len);
+	//上面几个 回调 函数 异步的读写
 
     /* The current checksum */
     uint64_t cksum;

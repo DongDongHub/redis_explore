@@ -317,13 +317,13 @@ long long addReplyReplicationBacklog(client *c, long long offset) {
     }
 
     serverLog(LL_DEBUG, "[PSYNC] Backlog size: %lld",
-             server.repl_backlog_size);
+             server.repl_backlog_size);  	// repl backlog 可存储的总长度
     serverLog(LL_DEBUG, "[PSYNC] First byte: %lld",
-             server.repl_backlog_off);
+             server.repl_backlog_off);   	// repl backlog 的起始地址
     serverLog(LL_DEBUG, "[PSYNC] History len: %lld",
-             server.repl_backlog_histlen);
+             server.repl_backlog_histlen);  // repl History 的总长度
     serverLog(LL_DEBUG, "[PSYNC] Current index: %lld",
-             server.repl_backlog_idx);
+             server.repl_backlog_idx);      // repl current index 的当前的下标
 
     /* Compute the amount of bytes we need to discard. */
     skip = offset - server.repl_backlog_off;
@@ -335,25 +335,27 @@ long long addReplyReplicationBacklog(client *c, long long offset) {
         (server.repl_backlog_size-server.repl_backlog_histlen)) %
         server.repl_backlog_size;
     serverLog(LL_DEBUG, "[PSYNC] Index of first byte: %lld", j);
+	// why not use repl_backlog_off directly ?
 
     /* Discard the amount of data to seek to the specified 'offset'. */
     j = (j + skip) % server.repl_backlog_size;
 
     /* Feed slave with data. Since it is a circular buffer we have to
      * split the reply in two parts if we are cross-boundary. */
-    len = server.repl_backlog_histlen - skip;
+    len = server.repl_backlog_histlen - skip;  //待 同步数据 的长度
     serverLog(LL_DEBUG, "[PSYNC] Reply total length: %lld", len);
     while(len) {
         long long thislen =
             ((server.repl_backlog_size - j) < len) ?
-            (server.repl_backlog_size - j) : len;
-
+            (server.repl_backlog_size - j) : len;  // 如果 (server.repl_backlog_size - j) < len 需要分两次同步 一次是 server.repl_backlog_size - j 
+            									   // 和 len - 上一次同步的数据
+            
         serverLog(LL_DEBUG, "[PSYNC] addReply() length: %lld", thislen);
         addReplySds(c,sdsnewlen(server.repl_backlog + j, thislen));
         len -= thislen;
         j = 0;
     }
-    return server.repl_backlog_histlen - skip;
+    return server.repl_backlog_histlen - skip;  //返回同步的数据的长度
 }
 
 /* Return the offset to provide as reply to the PSYNC command received
@@ -384,6 +386,7 @@ long long getPsyncInitialOffset(void) {
  * Normally this function should be called immediately after a successful
  * BGSAVE for replication was started, or when there is one already in
  * progress that we attached our slave to. */
+// 发送 FULLRESYNC 命令 包含 runid 和 offset 用来支持 psync 指令
 int replicationSetupSlaveForFullResync(client *slave, long long offset) {
     char buf[128];
     int buflen;
@@ -413,6 +416,7 @@ int replicationSetupSlaveForFullResync(client *slave, long long offset) {
  *
  * On success return C_OK, otherwise C_ERR is returned and we proceed
  * with the usual full resync. */
+ //处理 psync 指令局部同步
 int masterTryPartialResynchronization(client *c) {
     long long psync_offset, psync_len;
     char *master_runid = c->argv[1]->ptr;
@@ -422,15 +426,15 @@ int masterTryPartialResynchronization(client *c) {
     /* Is the runid of this master the same advertised by the wannabe slave
      * via PSYNC? If runid changed this master is a different instance and
      * there is no way to continue. */
-    if (strcasecmp(master_runid, server.runid)) {
+    if (strcasecmp(master_runid, server.runid)) { //从机的 runid 与 当前的 runid 不一致
         /* Run id "?" is used by slaves that want to force a full resync. */
         if (master_runid[0] != '?') {
             serverLog(LL_NOTICE,"Partial resynchronization not accepted: "
                 "Runid mismatch (Client asked for runid '%s', my runid is '%s')",
-                master_runid, server.runid);
+                master_runid, server.runid);  //从机的 runid 与 当前的 runid 不一致
         } else {
             serverLog(LL_NOTICE,"Full resync requested by slave %s",
-                replicationGetSlaveName(c));
+                replicationGetSlaveName(c)); //从机 要求 全量同步
         }
         goto need_full_resync;
     }
@@ -438,7 +442,7 @@ int masterTryPartialResynchronization(client *c) {
     /* We still have the data our slave is asking for? */
     if (getLongLongFromObjectOrReply(c,c->argv[2],&psync_offset,NULL) !=
        C_OK) goto need_full_resync;
-    if (!server.repl_backlog ||
+    if (!server.repl_backlog ||  //如果 repl_backlog == nil 或者 psync_offset < repl_backlog_off(start index) 或者 psync_offset > repl_backlog_off(end index)
         psync_offset < server.repl_backlog_off ||
         psync_offset > (server.repl_backlog_off + server.repl_backlog_histlen))
     {
@@ -464,11 +468,11 @@ int masterTryPartialResynchronization(client *c) {
      * new commands at this stage. But we are sure the socket send buffer is
      * empty so this write will never fail actually. */
     buflen = snprintf(buf,sizeof(buf),"+CONTINUE\r\n");
-    if (write(c->fd,buf,buflen) != buflen) {
+    if (write(c->fd,buf,buflen) != buflen) {// 如果 写回 client 的操作失败 则关闭 client
         freeClientAsync(c);
         return C_OK;
     }
-    psync_len = addReplyReplicationBacklog(c,psync_offset);
+    psync_len = addReplyReplicationBacklog(c,psync_offset);  //添加 部分同步带同步的命令 到 client 的缓冲区
     serverLog(LL_NOTICE,
         "Partial resynchronization request from %s accepted. Sending %lld bytes of backlog starting from offset %lld.",
             replicationGetSlaveName(c),
@@ -476,7 +480,7 @@ int masterTryPartialResynchronization(client *c) {
     /* Note that we don't need to set the selected DB at server.slaveseldb
      * to -1 to force the master to emit SELECT, since the slave already
      * has this state from the previous connection with the master. */
-
+	// psync 适用于 client 网络连接中断  而不是 重新启动的情况
     refreshGoodSlavesCount();
     return C_OK; /* The caller can return, no full resync needed. */
 
@@ -487,6 +491,7 @@ need_full_resync:
      * is generated, so we need to delay the reply to that moment. */
     return C_ERR;
 }
+
 
 /* Start a BGSAVE for replication goals, which is, selecting the disk or
  * socket target depending on the configuration, and making sure that
@@ -511,12 +516,12 @@ int startBgsaveForReplication(int mincapa) {
     int socket_target = server.repl_diskless_sync && (mincapa & SLAVE_CAPA_EOF);
     listIter li;
     listNode *ln;
-
+	
     serverLog(LL_NOTICE,"Starting BGSAVE for SYNC with target: %s",
         socket_target ? "slaves sockets" : "disk");
 
     if (socket_target)
-        retval = rdbSaveToSlavesSockets();
+        retval = rdbSaveToSlavesSockets();  //通过网络传输 rdb
     else
         retval = rdbSaveBackground(server.rdb_filename);
 
@@ -561,6 +566,7 @@ int startBgsaveForReplication(int mincapa) {
 }
 
 /* SYNC and PSYNC command implemenation. */
+// sync 全量同步 psync 增量同步
 void syncCommand(client *c) {
     /* ignore SYNC if already slave or in monitor mode */
     if (c->flags & CLIENT_SLAVE) return;
@@ -576,6 +582,7 @@ void syncCommand(client *c) {
      * the client about already issued commands. We need a fresh reply
      * buffer registering the differences between the BGSAVE and the current
      * dataset, so that we can copy to other slaves if needed. */
+     // sync 指令不能执行 当 服务端 有未发送的数据缓存在 client 的缓冲区时
     if (clientHasPendingReplies(c)) {
         addReplyError(c,"SYNC and PSYNC are invalid with pending output");
         return;
@@ -593,7 +600,7 @@ void syncCommand(client *c) {
      *
      * So the slave knows the new runid and offset to try a PSYNC later
      * if the connection with the master is lost. */
-    if (!strcasecmp(c->argv[0]->ptr,"psync")) {
+    if (!strcasecmp(c->argv[0]->ptr,"psync")) {  // psync 指令检测到 (2.8 之后的版本支持)
         if (masterTryPartialResynchronization(c) == C_OK) {
             server.stat_sync_partial_ok++;
             return; /* No full resync needed, return. */
@@ -604,13 +611,13 @@ void syncCommand(client *c) {
              * runid is not "?", as this is used by slaves to force a full
              * resync on purpose when they are not albe to partially
              * resync. */
-            if (master_runid[0] != '?') server.stat_sync_partial_err++;
+            if (master_runid[0] != '?') server.stat_sync_partial_err++;  //增加 增量同步失败的记录数 仅仅 runid 不匹配的情况
         }
     } else {
         /* If a slave uses SYNC, we are dealing with an old implementation
          * of the replication protocol (like redis-cli --slave). Flag the client
          * so that we don't expect to receive REPLCONF ACK feedbacks. */
-        c->flags |= CLIENT_PRE_PSYNC;
+        c->flags |= CLIENT_PRE_PSYNC;  //标识 该从机是一个 就版本 不支持 psync 指令
     }
 
     /* Full resynchronization. */
@@ -686,7 +693,7 @@ void syncCommand(client *c) {
         }
     }
 
-    if (listLength(server.slaves) == 1 && server.repl_backlog == NULL)
+    if (listLength(server.slaves) == 1 && server.repl_backlog == NULL)  //初始化 repl log 缓存区用于存操作命令
         createReplicationBacklog();
     return;
 }
@@ -1979,6 +1986,7 @@ void replicationResurrectCachedMaster(int newfd) {
 /* This function counts the number of slaves with lag <= min-slaves-max-lag.
  * If the option is active, the server will prevent writes if there are not
  * enough connected slaves with the specified lag (or less). */
+ 
 void refreshGoodSlavesCount(void) {
     listIter li;
     listNode *ln;

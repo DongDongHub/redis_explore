@@ -38,6 +38,7 @@
 
 /* The current RDB version. When the format changes in a way that is no longer
  * backward compatible this number gets incremented. */
+// 当 format 改变的时候 RDB_VERSION 会增加 而不保持向下兼容
 #define RDB_VERSION 7
 
 /* Defines related to the dump file format. To store 32 bits lengths for short
